@@ -14,10 +14,35 @@ use blake2::digest::{consts::U28, Digest};
 use blake2::Blake2b;
 use serde::Deserialize;
 use std::io::Read;
+use std::path::Path;
 use std::process;
 
 /// blake2b-224 (28-byte output) — used for Cardano key hashes.
 type Blake2b224 = Blake2b<U28>;
+
+const CONFIG_PATH: &str = "/etc/libpam-web3/cardano.toml";
+
+#[derive(Deserialize)]
+struct PluginConfig {
+    #[serde(default = "default_network")]
+    network: String,
+}
+
+fn default_network() -> String {
+    "mainnet".to_string()
+}
+
+fn load_config() -> PluginConfig {
+    let path = Path::new(CONFIG_PATH);
+    if path.exists() {
+        if let Ok(content) = std::fs::read_to_string(path) {
+            if let Ok(config) = toml::from_str(&content) {
+                return config;
+            }
+        }
+    }
+    PluginConfig { network: default_network() }
+}
 
 #[derive(Deserialize)]
 struct PluginInput {
@@ -54,7 +79,9 @@ fn main() {
         }
     };
 
-    match verify(&parsed) {
+    let config = load_config();
+
+    match verify(&parsed, &config) {
         Ok(address) => {
             print!("{}", address);
             process::exit(0);
@@ -66,7 +93,7 @@ fn main() {
     }
 }
 
-fn verify(input: &PluginInput) -> Result<String, String> {
+fn verify(input: &PluginInput, config: &PluginConfig) -> Result<String, String> {
     if input.sig.public_key.is_empty() {
         return Err("missing public_key".to_string());
     }
@@ -78,19 +105,15 @@ fn verify(input: &PluginInput) -> Result<String, String> {
     // 2. CBOR-decode as COSE_Key map, extract Ed25519 public key from label -2
     let pubkey_raw = extract_ed25519_pubkey(&key_bytes)?;
 
-    // 3. Derive Cardano enterprise address (key hash only, no staking credential)
+    // 3. Derive Cardano enterprise address based on configured network
     let key_hash = blake2b_224(&pubkey_raw);
 
-    // Derive both mainnet and testnet — return mainnet by default.
-    // PAM matches the returned address against GECOS case-insensitively.
-    let mainnet_addr = encode_enterprise_address(0x61, &key_hash, "addr")?;
-    let testnet_addr = encode_enterprise_address(0x60, &key_hash, "addr_test")?;
+    let (header, hrp) = match config.network.as_str() {
+        "testnet" => (0x60u8, "addr_test"),
+        _ => (0x61u8, "addr"),
+    };
 
-    eprintln!("derived mainnet: {}", mainnet_addr);
-    eprintln!("derived testnet: {}", testnet_addr);
-
-    // TODO: Infer network from config or environment. For now return mainnet.
-    Ok(mainnet_addr)
+    encode_enterprise_address(header, &key_hash, hrp)
 }
 
 /// Extract the raw Ed25519 public key (32 bytes) from a CBOR-encoded COSE_Key.
