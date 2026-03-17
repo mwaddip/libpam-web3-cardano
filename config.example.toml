@@ -1,0 +1,7 @@
+[https]
+port = 8443
+bind = ["::","0.0.0.0"]
+cert_path = "/etc/libpam-web3/tls/cert.pem"
+key_path = "/etc/libpam-web3/tls/key.pem"
+signing_page_path = "/usr/share/blockhost/signing-page/index.html"
+pending_dir = "/run/libpam-web3/pending"
