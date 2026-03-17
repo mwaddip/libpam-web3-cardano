@@ -56,8 +56,8 @@ echo "[3/4] Creating package structure..."
 mkdir -p "$PKG_DIR/DEBIAN"
 mkdir -p "$PKG_DIR/usr/lib/libpam-web3/plugins"
 mkdir -p "$PKG_DIR/usr/bin"
-mkdir -p "$PKG_DIR/usr/share/blockhost/auth-svc"
-mkdir -p "$PKG_DIR/usr/share/blockhost/signing-page"
+mkdir -p "$PKG_DIR/usr/share/blockhost/auth-svc/cardano"
+mkdir -p "$PKG_DIR/usr/share/blockhost/signing-pages/cardano"
 mkdir -p "$PKG_DIR/lib/systemd/system"
 mkdir -p "$PKG_DIR/usr/lib/tmpfiles.d"
 mkdir -p "$PKG_DIR/usr/share/doc/${PKG_NAME}"
@@ -66,20 +66,20 @@ mkdir -p "$PKG_DIR/usr/share/doc/${PKG_NAME}"
 cp "$PROJECT_DIR/target/release/cardano" "$PKG_DIR/usr/lib/libpam-web3/plugins/"
 
 # Copy bundled auth-svc
-cp "$PROJECT_DIR/auth-svc.js" "$PKG_DIR/usr/share/blockhost/auth-svc/"
+cp "$PROJECT_DIR/auth-svc.js" "$PKG_DIR/usr/share/blockhost/auth-svc/cardano/"
 
 # Create wrapper script for auth-svc
-cat > "$PKG_DIR/usr/bin/web3-auth-svc" << 'WRAPPER'
+cat > "$PKG_DIR/usr/bin/web3-auth-svc-cardano" << 'WRAPPER'
 #!/bin/sh
-exec node /usr/share/blockhost/auth-svc/auth-svc.js "$@"
+exec node /usr/share/blockhost/auth-svc/cardano/auth-svc.js "$@"
 WRAPPER
 
-# Copy signing page
-cp "$PROJECT_DIR/signing-page/index.html" "$PKG_DIR/usr/share/blockhost/signing-page/"
-cp "$PROJECT_DIR/signing-page/engine.js" "$PKG_DIR/usr/share/blockhost/signing-page/"
+# Copy signing page (served directly by auth-svc)
+cp "$PROJECT_DIR/signing-page/index.html" "$PKG_DIR/usr/share/blockhost/signing-pages/cardano/"
+cp "$PROJECT_DIR/signing-page/engine.js" "$PKG_DIR/usr/share/blockhost/signing-pages/cardano/"
 
 # Copy systemd unit
-cp "$PROJECT_DIR/web3-auth-svc.service" "$PKG_DIR/lib/systemd/system/"
+cp "$PROJECT_DIR/web3-auth-svc.service" "$PKG_DIR/lib/systemd/system/web3-auth-svc-cardano.service"
 
 # Copy tmpfiles.d config
 cp "$PROJECT_DIR/libpam-web3.conf" "$PKG_DIR/usr/lib/tmpfiles.d/"
@@ -116,13 +116,15 @@ case "$1" in
     configure)
         systemd-tmpfiles --create /usr/lib/tmpfiles.d/libpam-web3.conf 2>/dev/null || true
         systemctl daemon-reload
+        systemctl enable --now web3-auth-svc-cardano 2>/dev/null || true
         echo ""
         echo "=== libpam-web3-cardano installed ==="
         echo ""
-        echo "Plugin: /usr/lib/libpam-web3/plugins/cardano"
-        echo "Auth service: systemctl start web3-auth-svc"
-        echo "Config: /etc/web3-auth/config.toml (create from example)"
-        echo "Example: /usr/share/doc/libpam-web3-cardano/config.example.toml"
+        echo "Plugin:       /usr/lib/libpam-web3/plugins/cardano"
+        echo "Auth-svc:     systemctl status web3-auth-svc-cardano"
+        echo "Signing page: https://\$(hostname):34206/"
+        echo ""
+        echo "No configuration needed — port derived from chain name, TLS from libpam-web3."
         echo ""
         ;;
 esac
@@ -130,12 +132,26 @@ exit 0
 EOF
 chmod 755 "$PKG_DIR/DEBIAN/postinst"
 
+# Create prerm
+cat > "$PKG_DIR/DEBIAN/prerm" << 'EOF'
+#!/bin/bash
+set -e
+case "$1" in
+    remove|upgrade)
+        systemctl stop web3-auth-svc-cardano 2>/dev/null || true
+        systemctl disable web3-auth-svc-cardano 2>/dev/null || true
+        ;;
+esac
+exit 0
+EOF
+chmod 755 "$PKG_DIR/DEBIAN/prerm"
+
 # Set permissions
 find "$PKG_DIR" -type d -exec chmod 755 {} \;
 find "$PKG_DIR" -type f -exec chmod 644 {} \;
 chmod 755 "$PKG_DIR/DEBIAN/postinst"
 chmod 755 "$PKG_DIR/usr/lib/libpam-web3/plugins/cardano"
-chmod 755 "$PKG_DIR/usr/bin/web3-auth-svc"
+chmod 755 "$PKG_DIR/usr/bin/web3-auth-svc-cardano"
 
 # 4. Build the package
 echo "[4/4] Building .deb package..."

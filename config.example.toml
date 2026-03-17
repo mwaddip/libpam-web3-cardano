@@ -1,7 +1,12 @@
-[https]
-port = 8443
-bind = ["::","0.0.0.0"]
-cert_path = "/etc/libpam-web3/tls/cert.pem"
-key_path = "/etc/libpam-web3/tls/key.pem"
-signing_page_path = "/usr/share/blockhost/signing-page/index.html"
-pending_dir = "/run/libpam-web3/pending"
+# web3-auth-svc (Cardano) configuration
+# Install to: /etc/web3-auth/cardano.toml
+#
+# This file is OPTIONAL. Without it, the auth-svc uses:
+#   port = 34206  (derived: 1024 + crc32("cardano") % 64511)
+#   pending_dir = /run/libpam-web3/pending
+
+[server]
+# Override the derived port if needed
+# port = 34206
+# Directory where PAM session files are written
+# pending_dir = "/run/libpam-web3/pending"

@@ -1,11 +1,11 @@
 [Unit]
-Description=BlockHost Web3 Auth Service (Cardano)
+Description=libpam-web3 Auth Service (Cardano)
 After=network.target
 
 [Service]
 Type=simple
 User=root
-ExecStart=/usr/bin/web3-auth-svc
+ExecStart=/usr/bin/web3-auth-svc-cardano
 Restart=always
 RestartSec=5
 StandardOutput=journal
