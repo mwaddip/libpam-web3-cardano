@@ -1,7 +1,0 @@
-# Cardano plugin configuration
-# Install to: /etc/libpam-web3/cardano.toml
-
-# Network for address derivation: "mainnet" or "testnet"
-# Determines the bech32 prefix (addr vs addr_test) and header byte.
-# Must match the address format in GECOS wallet= fields.
-network = "mainnet"

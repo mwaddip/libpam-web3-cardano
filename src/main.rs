@@ -14,41 +14,18 @@ use blake2::digest::{consts::U28, Digest};
 use blake2::Blake2b;
 use serde::Deserialize;
 use std::io::Read;
-use std::path::Path;
 use std::process;
 
 /// blake2b-224 (28-byte output) — used for Cardano key hashes.
 type Blake2b224 = Blake2b<U28>;
-
-const CONFIG_PATH: &str = "/etc/libpam-web3/cardano.toml";
-
-#[derive(Deserialize)]
-struct PluginConfig {
-    #[serde(default = "default_network")]
-    network: String,
-}
-
-fn default_network() -> String {
-    "mainnet".to_string()
-}
-
-fn load_config() -> PluginConfig {
-    let path = Path::new(CONFIG_PATH);
-    if path.exists() {
-        if let Ok(content) = std::fs::read_to_string(path) {
-            if let Ok(config) = toml::from_str(&content) {
-                return config;
-            }
-        }
-    }
-    PluginConfig { network: default_network() }
-}
 
 #[derive(Deserialize)]
 struct PluginInput {
     sig: CardanoSig,
     #[allow(dead_code)]
     otp_message: String,
+    /// The wallet address from the user's GECOS field (bech32, includes network)
+    wallet_address: String,
 }
 
 #[derive(Deserialize)]
@@ -79,9 +56,7 @@ fn main() {
         }
     };
 
-    let config = load_config();
-
-    match verify(&parsed, &config) {
+    match verify(&parsed) {
         Ok(address) => {
             print!("{}", address);
             process::exit(0);
@@ -93,9 +68,12 @@ fn main() {
     }
 }
 
-fn verify(input: &PluginInput, config: &PluginConfig) -> Result<String, String> {
+fn verify(input: &PluginInput) -> Result<String, String> {
     if input.sig.public_key.is_empty() {
         return Err("missing public_key".to_string());
+    }
+    if input.wallet_address.is_empty() {
+        return Err("missing wallet_address".to_string());
     }
 
     // 1. Hex-decode the COSE_Key
@@ -105,15 +83,30 @@ fn verify(input: &PluginInput, config: &PluginConfig) -> Result<String, String> 
     // 2. CBOR-decode as COSE_Key map, extract Ed25519 public key from label -2
     let pubkey_raw = extract_ed25519_pubkey(&key_bytes)?;
 
-    // 3. Derive Cardano enterprise address based on configured network
+    // 3. Derive key hash from the public key
     let key_hash = blake2b_224(&pubkey_raw);
 
-    let (header, hrp) = match config.network.as_str() {
-        "testnet" => (0x60u8, "addr_test"),
-        _ => (0x61u8, "addr"),
-    };
+    // 4. Decode the GECOS wallet address (bech32) and extract the payment credential
+    let (_hrp, addr_bytes) = bech32::decode(&input.wallet_address)
+        .map_err(|e| format!("invalid bech32 wallet address: {}", e))?;
 
-    encode_enterprise_address(header, &key_hash, hrp)
+    // Cardano address: header_byte (1) + payment_credential (28) [+ optional staking (28)]
+    if addr_bytes.len() < 29 {
+        return Err(format!(
+            "wallet address too short: {} bytes (expected >= 29)",
+            addr_bytes.len()
+        ));
+    }
+
+    let payment_credential = &addr_bytes[1..29];
+
+    // 5. Verify the payment credential matches the derived key hash
+    if payment_credential != key_hash.as_slice() {
+        return Err("public key does not match wallet address".to_string());
+    }
+
+    // Identity confirmed — return the GECOS wallet address (preserves network encoding)
+    Ok(input.wallet_address.clone())
 }
 
 /// Extract the raw Ed25519 public key (32 bytes) from a CBOR-encoded COSE_Key.
@@ -187,11 +180,3 @@ fn blake2b_224(data: &[u8]) -> Vec<u8> {
     hasher.finalize().to_vec()
 }
 
-fn encode_enterprise_address(header: u8, key_hash: &[u8], hrp: &str) -> Result<String, String> {
-    let mut addr_bytes = Vec::with_capacity(29);
-    addr_bytes.push(header);
-    addr_bytes.extend_from_slice(key_hash);
-    let hrp = bech32::Hrp::parse(hrp).map_err(|e| format!("invalid bech32 hrp: {}", e))?;
-    bech32::encode::<bech32::Bech32>(hrp, &addr_bytes)
-        .map_err(|e| format!("bech32 encoding failed: {}", e))
-}
