@@ -150,6 +150,7 @@ chmod 755 "$PKG_DIR/DEBIAN/prerm"
 find "$PKG_DIR" -type d -exec chmod 755 {} \;
 find "$PKG_DIR" -type f -exec chmod 644 {} \;
 chmod 755 "$PKG_DIR/DEBIAN/postinst"
+chmod 755 "$PKG_DIR/DEBIAN/prerm"
 chmod 755 "$PKG_DIR/usr/lib/libpam-web3/plugins/cardano"
 chmod 755 "$PKG_DIR/usr/bin/web3-auth-svc-cardano"
 
