@@ -175,6 +175,16 @@ $('reset-sign').onclick = resetSign;
 $('code').onkeypress = e => { if (e.key === 'Enter') $('machine').focus(); };
 $('machine').onkeypress = e => { if (e.key === 'Enter') sign(); };
 
-// Auto-detect wallets on load
-detectWallets();
+// Wallet extensions inject window.cardano asynchronously — retry until found
+if (window.cardano) {
+  detectWallets();
+} else {
+  let retries = 0;
+  const timer = setInterval(() => {
+    if (window.cardano || ++retries > 10) {
+      clearInterval(timer);
+      detectWallets();
+    }
+  }, 200);
+}
 })();
