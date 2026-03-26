@@ -39,7 +39,8 @@ The auth-svc verifies the signature is authentic. The plugin derives the address
 cargo build --release           # Plugin binary: target/release/cardano
 
 # Auth-svc bundle (requires Node.js):
-npx esbuild auth-svc-src/index.ts --bundle --platform=node --target=node22 --minify --outfile=auth-svc.js
+npx esbuild auth-svc-src/index.ts --bundle --platform=node --target=node22 --minify \
+  --alias:@noble/curves/ed25519=@noble/curves/ed25519.js --outfile=auth-svc.js
 
 # Full .deb package:
 ./packaging/build-deb.sh
