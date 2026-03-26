@@ -30,10 +30,13 @@ echo "=== Building ${PKG_NAME} ${VERSION} for ${ARCH} ==="
 rm -rf "$PKG_DIR"
 rm -f "$SCRIPT_DIR/${PKG_NAME}_${VERSION}_${ARCH}.deb"
 
-# 1. Build Rust plugin binary
+# 1. Build Rust plugin binary (target glibc 2.36 for Debian 12 compatibility)
 echo "[1/4] Building Cardano verification plugin..."
 cd "$PROJECT_DIR"
-cargo build --release
+ZIG_TARGET="x86_64-unknown-linux-gnu.2.36"
+BINDGEN_EXTRA_CLANG_ARGS="--sysroot=/ -I/usr/include" \
+RUSTFLAGS="-L /usr/lib/x86_64-linux-gnu" \
+cargo zigbuild --release --target "$ZIG_TARGET"
 
 # 2. Bundle auth-svc with esbuild
 echo "[2/4] Bundling auth-svc..."
@@ -63,7 +66,7 @@ mkdir -p "$PKG_DIR/usr/lib/tmpfiles.d"
 mkdir -p "$PKG_DIR/usr/share/doc/${PKG_NAME}"
 
 # Copy plugin binary
-cp "$PROJECT_DIR/target/release/cardano" "$PKG_DIR/usr/lib/libpam-web3/plugins/"
+cp "$PROJECT_DIR/target/x86_64-unknown-linux-gnu/release/cardano" "$PKG_DIR/usr/lib/libpam-web3/plugins/"
 
 # Copy bundled auth-svc
 cp "$PROJECT_DIR/auth-svc.js" "$PKG_DIR/usr/share/blockhost/auth-svc/cardano/"
