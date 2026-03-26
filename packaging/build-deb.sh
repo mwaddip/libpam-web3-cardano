@@ -48,7 +48,7 @@ fi
 
 # Install build dependencies
 npm install --save-dev esbuild 2>/dev/null
-npm install cbor @noble/ed25519 @noble/curves @noble/hashes 2>/dev/null
+npm install cbor @noble/curves @noble/hashes 2>/dev/null
 
 npx esbuild auth-svc-src/index.ts \
     --bundle --platform=node --target=node22 --minify \

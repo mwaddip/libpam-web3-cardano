@@ -30,7 +30,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { timingSafeEqual } from "node:crypto";
 import * as cbor from "cbor";
-import { verifyAsync as ed25519Verify } from "@noble/ed25519";
+import { ed25519 } from "@noble/curves/ed25519";
 
 // ── Constants ──────────────────────────────────────────────────────────
 
@@ -219,7 +219,7 @@ interface CardanoSigFile {
   machine_id: string;
 }
 
-async function validateAndWriteSig(sessionId: string, payload: CallbackPayload): Promise<string | null> {
+function validateAndWriteSig(sessionId: string, payload: CallbackPayload): string | null {
   const sigPath = path.join(PENDING_DIR, `${sessionId}.sig`);
   if (fs.existsSync(sigPath)) return "session already processed";
 
@@ -288,7 +288,7 @@ async function validateAndWriteSig(sessionId: string, payload: CallbackPayload):
       return "COSE_Sign1: signature must be 64 bytes";
     }
 
-    const valid = await ed25519Verify(
+    const valid = ed25519.verify(
       signatureBuf,
       new Uint8Array(sigStructureEncoded),
       new Uint8Array(publicKeyRaw),
@@ -386,7 +386,7 @@ function handlePostCallback(
     chunks.push(chunk);
   });
 
-  req.on("end", async () => {
+  req.on("end", () => {
     if (aborted) return;
 
     const body = Buffer.concat(chunks).toString("utf8").trim();
@@ -396,7 +396,7 @@ function handlePostCallback(
       return;
     }
 
-    const error = await validateAndWriteSig(sessionId, payload);
+    const error = validateAndWriteSig(sessionId, payload);
 
     if (error === null) {
       sendResponse(res, 200, "OK");
