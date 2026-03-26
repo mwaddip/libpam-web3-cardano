@@ -1,0 +1,13 @@
+{
+  "name": "libpam-web3-cardano-auth-svc",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "cbor": "^9.0.0",
+    "@noble/curves": "^1.8.0",
+    "@noble/hashes": "^1.7.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0"
+  }
+}

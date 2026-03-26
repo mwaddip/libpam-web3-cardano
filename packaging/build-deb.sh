@@ -46,12 +46,12 @@ if ! command -v npx &> /dev/null; then
     exit 1
 fi
 
-# Install build dependencies
-npm install --save-dev esbuild 2>/dev/null
-npm install cbor @noble/curves @noble/hashes 2>/dev/null
+# Install dependencies
+(cd "$PROJECT_DIR" && npm install --silent)
 
 npx esbuild auth-svc-src/index.ts \
     --bundle --platform=node --target=node22 --minify \
+    --alias:@noble/curves/ed25519=@noble/curves/ed25519.js \
     --outfile=auth-svc.js
 
 # 3. Create package directory structure
