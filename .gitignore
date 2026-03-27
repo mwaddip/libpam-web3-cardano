@@ -1,4 +1,6 @@
 target/
 node_modules/
+package-lock.json
 auth-svc.js
-*.deb
+packaging/*.deb
+packaging/libpam-web3-*/
