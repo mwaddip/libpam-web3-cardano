@@ -97,7 +97,8 @@ Version: ${VERSION}
 Section: admin
 Priority: optional
 Architecture: ${ARCH}
-Depends: libpam-web3, nodejs (>= 18)
+Depends: libpam-web3
+Recommends: nodejs (>= 18)
 Maintainer: libpam-web3 maintainers
 Homepage: https://github.com/mwaddip/libpam-web3-cardano
 Description: Cardano authentication plugin for libpam-web3
