@@ -77,7 +77,11 @@ cat > "$PKG_DIR/usr/bin/web3-auth-svc-cardano" << 'WRAPPER'
 exec node /usr/share/blockhost/auth-svc/cardano/auth-svc.js "$@"
 WRAPPER
 
-# Copy signing page (served directly by auth-svc)
+# Regenerate index.html from template.html with built-in defaults, then copy
+# template + bundle + generated index. Downstream regenerators (e.g. blockhost
+# provisioner) can re-run generate.sh against template.html with custom values.
+"$PROJECT_DIR/signing-page/generate.sh"
+cp "$PROJECT_DIR/signing-page/template.html" "$PKG_DIR/usr/share/blockhost/signing-pages/cardano/"
 cp "$PROJECT_DIR/signing-page/index.html" "$PKG_DIR/usr/share/blockhost/signing-pages/cardano/"
 cp "$PROJECT_DIR/signing-page/engine.js" "$PKG_DIR/usr/share/blockhost/signing-pages/cardano/"
 

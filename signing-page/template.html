@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Cardano Authentication</title>
+<title>{{PAGE_TITLE}}</title>
 <style>
 :root {
-  --primary: #0033AD;
+  --primary: {{PRIMARY_COLOR}};
   --primary-dark: color-mix(in srgb, var(--primary) 80%, black);
   --bg: #0a0a0a;
   --surface: #1a1a1a;
@@ -50,7 +50,7 @@ button.loading{opacity:.7}
 </head>
 <body>
 <div class="c">
-<h1>Cardano Authentication</h1>
+<h1>{{PAGE_TITLE}}</h1>
 <div id="status-message" class="hidden"></div>
 
 <div id="step-connect" class="active">
@@ -71,12 +71,12 @@ button.loading{opacity:.7}
 
 <script>
 const CONFIG = {
-  publicSecret: "",
-  serverPublicKey: "",
-  rpcUrl: "",
-  nftContract: "",
-  subscriptionContract: "",
-  engineName: "cardano"
+  publicSecret: "{{PUBLIC_SECRET}}",
+  serverPublicKey: "{{SERVER_PUBLIC_KEY}}",
+  rpcUrl: "{{RPC_URL}}",
+  nftContract: "{{NFT_CONTRACT}}",
+  subscriptionContract: "{{SUBSCRIPTION_CONTRACT}}",
+  engineName: "{{ENGINE_NAME}}"
 };
 </script>
 <script src="engine.js"></script>
