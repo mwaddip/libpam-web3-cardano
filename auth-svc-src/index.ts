@@ -199,26 +199,20 @@ function readSession(sessionId: string): SessionData | null {
 
 interface CardanoSigFile {
   chain: "cardano";
-  signature: string;
-  public_key: string;
+  /** Raw 32-byte Ed25519 public key, hex. The plugin uses this directly
+   *  (no second CBOR parse) to derive the bech32 address via blake2b-224. */
+  ed25519_public_key: string;
   otp: string;
   machine_id: string;
 }
 
-function validateAndWriteSig(sessionId: string, payload: CallbackPayload): string | null {
-  const sigPath = path.join(PENDING_DIR, `${sessionId}.sig`);
-  if (fs.existsSync(sigPath)) return "session already processed";
-
-  const session = readSession(sessionId);
-  if (!session) return "session not found or malformed";
-
-  const otpA = Buffer.from(payload.otp);
-  const otpB = Buffer.from(session.otp);
-  if (otpA.length !== otpB.length) return "otp mismatch";
-  if (!timingSafeEqual(otpA, otpB)) return "otp mismatch";
-
-  if (payload.machineId !== session.machine_id) return "machine_id mismatch";
-
+/** Parse a CIP-30 COSE_Sign1 + COSE_Key, verify the Ed25519 signature, and
+ *  return the raw 32-byte Ed25519 public key on success.
+ *
+ *  Doing the COSE parse only here (not also in the PAM plugin) means the
+ *  CBOR layout is interpreted in exactly one place. The plugin then takes
+ *  the raw 32-byte hex straight to blake2b-224 → bech32, no ciborium. */
+function verifyAndExtractPubkey(payload: CallbackPayload): { pubkey: Uint8Array } | string {
   try {
     const sigBytes = Buffer.from(payload.signature, "hex");
     const keyBytes = Buffer.from(payload.key, "hex");
@@ -283,15 +277,34 @@ function validateAndWriteSig(sessionId: string, payload: CallbackPayload): strin
     if (!valid) {
       return "COSE_Sign1: Ed25519 signature verification failed";
     }
+
+    return { pubkey: new Uint8Array(publicKeyRaw) };
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);
     return `COSE verification error: ${detail}`;
   }
+}
+
+function validateAndWriteSig(sessionId: string, payload: CallbackPayload): string | null {
+  const sigPath = path.join(PENDING_DIR, `${sessionId}.sig`);
+  if (fs.existsSync(sigPath)) return "session already processed";
+
+  const session = readSession(sessionId);
+  if (!session) return "session not found or malformed";
+
+  const otpA = Buffer.from(payload.otp);
+  const otpB = Buffer.from(session.otp);
+  if (otpA.length !== otpB.length) return "otp mismatch";
+  if (!timingSafeEqual(otpA, otpB)) return "otp mismatch";
+
+  if (payload.machineId !== session.machine_id) return "machine_id mismatch";
+
+  const verified = verifyAndExtractPubkey(payload);
+  if (typeof verified === "string") return verified;
 
   const sigContent: CardanoSigFile = {
     chain: "cardano",
-    signature: payload.signature,
-    public_key: payload.key,
+    ed25519_public_key: Buffer.from(verified.pubkey).toString("hex"),
     otp: payload.otp,
     machine_id: payload.machineId,
   };
