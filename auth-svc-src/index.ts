@@ -31,6 +31,7 @@ import * as path from "node:path";
 import { timingSafeEqual } from "node:crypto";
 import * as cbor from "cbor";
 import { ed25519 } from "@noble/curves/ed25519";
+import { chainPort } from "./chain-port";
 
 // ── Constants ──────────────────────────────────────────────────────────
 
@@ -39,21 +40,6 @@ const DEFAULT_PENDING_DIR = "/run/libpam-web3/pending";
 let PENDING_DIR = DEFAULT_PENDING_DIR;
 const MAX_BODY_SIZE = 16_384;
 
-/**
- * Derive a deterministic port from a chain name.
- * Convention: port = 1024 + (crc32(chain_name) % 64511)
- * Gives a stable port in 1024..65534 with no cross-plugin coordination.
- */
-function chainPort(chain: string): number {
-  let crc = 0xFFFFFFFF;
-  for (let i = 0; i < chain.length; i++) {
-    crc ^= chain.charCodeAt(i);
-    for (let j = 0; j < 8; j++) {
-      crc = (crc >>> 1) ^ ((crc & 1) ? 0xEDB88320 : 0);
-    }
-  }
-  return 1024 + ((crc ^ 0xFFFFFFFF) >>> 0) % 64511;
-}
 
 const SESSION_ID_RE = /^[0-9a-f]{32}$/;
 const HEX_RE = /^[0-9a-fA-F]+$/;
@@ -511,4 +497,9 @@ function main(): void {
   });
 }
 
-main();
+// Only run as a server when invoked as the entry point (auth-svc.js or
+// index.ts via tsx). When imported by a test file, skip — otherwise the
+// test would try to load TLS certs and bind to a port.
+if (process.argv[1]?.match(/\/(auth-svc\.js|index\.ts)$/)) {
+  main();
+}
