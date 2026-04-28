@@ -62,10 +62,7 @@ fn main() {
     };
 
     match verify(&parsed) {
-        Ok(address) => {
-            print!("{}", address);
-            process::exit(0);
-        }
+        Ok(()) => process::exit(0),
         Err(e) => {
             eprintln!("{}", e);
             process::exit(1);
@@ -73,7 +70,7 @@ fn main() {
     }
 }
 
-fn verify(input: &PluginInput) -> Result<String, String> {
+fn verify(input: &PluginInput) -> Result<(), String> {
     if input.sig.public_key.is_empty() {
         return Err("missing public_key".to_string());
     }
@@ -105,13 +102,13 @@ fn verify(input: &PluginInput) -> Result<String, String> {
 
     let payment_credential = &addr_bytes[1..29];
 
-    // 5. Verify the payment credential matches the derived key hash
+    // 5. Verify the payment credential matches the derived key hash. This
+    //    is the identity binding: signature key → GECOS-listed address.
     if payment_credential != key_hash.as_slice() {
         return Err("public key does not match wallet address".to_string());
     }
 
-    // Identity confirmed — return the GECOS wallet address (preserves network encoding)
-    Ok(input.wallet_address.clone())
+    Ok(())
 }
 
 /// Extract the raw Ed25519 public key (32 bytes) from a CBOR-encoded COSE_Key.
