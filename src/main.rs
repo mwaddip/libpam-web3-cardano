@@ -6,9 +6,14 @@
 //!
 //! # Protocol
 //!
-//! stdin:  {"sig": {chain, signature, public_key, otp, machine_id}, "otp_message": "..."}
-//! stdout: bech32 Cardano address (enterprise format)
-//! exit:   0 = verified, 1 = denied
+//! Discovery: install-time manifest at /usr/lib/libpam-web3/plugins/cardano.json,
+//! written by postinst. PAM no longer queries the binary at startup.
+//!
+//! Verify:
+//!   stdin:  {"sig": {chain, signature, public_key, otp, machine_id},
+//!            "otp_message": "...", "wallet_address": "<from GECOS>"}
+//!   stdout: bech32 Cardano address (enterprise format)
+//!   exit:   0 = verified, 1 = denied
 
 use blake2::digest::{consts::U28, Digest};
 use blake2::Blake2b;
@@ -41,13 +46,6 @@ struct CardanoSig {
     machine_id: String,
 }
 
-/// Info response for plugin discovery.
-#[derive(serde::Serialize)]
-struct PluginInfoResponse {
-    chain: &'static str,
-    address_pattern: &'static str,
-}
-
 fn main() {
     let mut input = String::new();
     if let Err(e) = std::io::stdin().read_to_string(&mut input) {
@@ -55,20 +53,6 @@ fn main() {
         process::exit(1);
     }
 
-    // Check if this is an info request
-    if let Ok(obj) = serde_json::from_str::<serde_json::Value>(&input) {
-        if obj.get("command").and_then(|v| v.as_str()) == Some("info") {
-            let info = PluginInfoResponse {
-                chain: "cardano",
-                // Matches mainnet (addr1) and testnet (addr_test1) bech32 addresses
-                address_pattern: "^addr(_test)?1[a-z0-9]+$",
-            };
-            print!("{}", serde_json::to_string(&info).unwrap());
-            process::exit(0);
-        }
-    }
-
-    // Otherwise treat as a verify request
     let parsed: PluginInput = match serde_json::from_str(&input) {
         Ok(p) => p,
         Err(e) => {
